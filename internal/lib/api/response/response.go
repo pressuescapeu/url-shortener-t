@@ -1,0 +1,55 @@
+package response
+
+import (
+	"fmt"
+	"strings"
+
+	"github.com/go-playground/validator/v10"
+)
+
+type Response struct {
+	// we need status all the time so omitempty is not there
+	Status string `json:"status"` // either Error or Ok
+	Error  string `json:"error,omitempty"`
+}
+
+const (
+	StatusOK    = "OK"
+	StatusError = "Error"
+)
+
+func OK() Response {
+	return Response{
+		Status: StatusOK,
+	}
+}
+
+func Error(msg string) Response {
+	return Response{
+		Status: StatusError,
+		Error:  msg,
+	}
+}
+
+func ValidationError(errs validator.ValidationErrors) Response {
+	var errMsgs []string
+
+	// go through all the errors we got
+	for _, err := range errs {
+		// check by actual tag
+		switch err.ActualTag() {
+		// and append a corresponding message according to the tag
+		case "required":
+			errMsgs = append(errMsgs, fmt.Sprintf("field %s is a required field", err.Field()))
+		case "url":
+			errMsgs = append(errMsgs, fmt.Sprintf("field %s is not a valid URL", err.Field()))
+		default:
+			errMsgs = append(errMsgs, fmt.Sprintf("field %s is not valid", err.Field()))
+		}
+	}
+
+	return Response{
+		Status: StatusError,
+		Error:  strings.Join(errMsgs, ", "),
+	}
+}
