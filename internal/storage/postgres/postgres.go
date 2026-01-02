@@ -3,6 +3,7 @@ package postgres
 import (
 	"database/sql"
 	"fmt"
+	"url-shortener/internal/storage"
 
 	_ "github.com/lib/pq"
 )
@@ -69,6 +70,9 @@ func (s *Storage) GetURL(alias string) (string, error) {
 	var urlToGet string
 	err := s.db.QueryRow(`SELECT url FROM public.url WHERE alias=$1;`, alias).Scan(&urlToGet)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return "", fmt.Errorf("%s: %w", op, storage.ErrURLNotFound)
+		}
 		return "", fmt.Errorf("%s: %w", op, err)
 	}
 	return urlToGet, nil
@@ -77,9 +81,20 @@ func (s *Storage) GetURL(alias string) (string, error) {
 func (s *Storage) DeleteURL(alias string) error {
 	const op = "storage.postgres.DeleteURL"
 
-	_, err := s.db.Exec(`DELETE FROM public.url WHERE alias=$1`, alias)
+	result, err := s.db.Exec(`DELETE FROM public.url WHERE alias=$1`, alias)
 	if err != nil {
 		return fmt.Errorf("%s: %w", op, err)
+	}
+
+	rows, err := result.RowsAffected()
+
+	if err != nil {
+		return fmt.Errorf("%s: %w", op, err)
+	}
+
+	if rows == 0 {
+		// no rows where deleted
+		return fmt.Errorf("%s: %w", op, storage.ErrNoURLDeleted)
 	}
 	return nil
 }

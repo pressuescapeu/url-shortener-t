@@ -36,7 +36,7 @@ func New(log *slog.Logger, urlGetter URLGetter) http.HandlerFunc {
 		}
 
 		resURL, err := urlGetter.GetURL(alias)
-		if errors.Is(err, storage.ErrUrlExists) {
+		if errors.Is(err, storage.ErrURLNotFound) {
 			log.Info("url not found", "alias", alias)
 
 			render.JSON(w, r, resp.Error("internal error"))
