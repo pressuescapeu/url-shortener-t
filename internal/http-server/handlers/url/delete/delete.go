@@ -41,9 +41,9 @@ func New(log *slog.Logger, urlDeleter URLDeleter) http.HandlerFunc {
 		}
 		err := urlDeleter.DeleteURL(alias)
 		if errors.Is(err, storage.ErrNoURLDeleted) {
-			log.Info("no url rows deleted", slog.String("alias", alias))
+			log.Info("url not found", slog.String("alias", alias))
 
-			render.JSON(w, r, resp.Error("no url rows deleted"))
+			render.JSON(w, r, resp.Error("url not found"))
 
 			return
 		}

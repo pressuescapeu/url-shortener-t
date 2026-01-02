@@ -3,6 +3,7 @@ package tests
 import (
 	"net/http"
 	"net/url"
+	"path"
 	"testing"
 
 	"github.com/brianvoe/gofakeit/v6"
@@ -105,6 +106,19 @@ func TestURLShortener_SaveRedirect(t *testing.T) {
 			// Redirect
 
 			testRedirect(t, alias, tc.url)
+
+			// Remove
+
+			reqDel := e.DELETE("/"+path.Join("url", alias)).
+				WithBasicAuth("myuser", "mypass").Expect().
+				Status(http.StatusOK).JSON().Object()
+
+			reqDel.Value("status").String().IsEqual("OK")
+
+			// Redirect again
+
+			testRedirectNotFound(t, alias)
+
 		})
 	}
 }
@@ -120,4 +134,15 @@ func testRedirect(t *testing.T, alias string, urlToRedirect string) {
 	require.NoError(t, err)
 
 	require.Equal(t, urlToRedirect, redirectedToURL)
+}
+
+func testRedirectNotFound(t *testing.T, alias string) {
+	u := url.URL{
+		Scheme: "http",
+		Host:   host,
+		Path:   alias,
+	}
+
+	_, err := api.GetRedirect(u.String())
+	require.ErrorIs(t, err, api.ErrInvalidStatusCode)
 }
