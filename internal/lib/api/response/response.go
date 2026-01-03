@@ -14,8 +14,9 @@ type Response struct {
 }
 
 const (
-	StatusOK    = "OK"
-	StatusError = "Error"
+	StatusOK      = "OK"
+	StatusError   = "Error"
+	StatusCreated = "Created"
 )
 
 func OK() Response {
@@ -28,6 +29,12 @@ func Error(msg string) Response {
 	return Response{
 		Status: StatusError,
 		Error:  msg,
+	}
+}
+
+func Created() Response {
+	return Response{
+		Status: StatusCreated,
 	}
 }
 

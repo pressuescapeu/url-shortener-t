@@ -28,46 +28,80 @@ func TestSaveHandler(t *testing.T) {
 	// this is a table-driven set, meaning that instead of writing 5 separate functions,
 	// we define the test case with 5 attributes
 	cases := []struct {
-		name      string
-		alias     string
-		url       string
-		respError string
-		mockError error
+		name           string
+		alias          string
+		url            string
+		respError      string
+		mockError      error
+		expectedStatus int
 	}{
 		// this is a successful test case - user sends a valid alias with a valid url and it's all good
 		{
-			name:  "Success",
-			alias: "test_alias",
-			url:   "https://google.com",
+			name:           "Success",
+			alias:          "testalias",
+			url:            "https://google.com",
+			expectedStatus: http.StatusCreated,
 		},
 		// this is an empty alias test case (duh)
 		// we generate a random alias for this so the code still works
 		{
-			name:  "Empty alias",
-			alias: "",
-			url:   "https://google.com",
+			name:           "Empty alias",
+			alias:          "",
+			url:            "https://google.com",
+			expectedStatus: http.StatusCreated,
 		},
 		// user sends alias but no url - so we expect the message of respError
 		{
-			name:      "Empty URL",
-			url:       "",
-			alias:     "some_alias",
-			respError: "field URL is a required field",
+			name:           "Empty URL",
+			url:            "",
+			alias:          "somealias",
+			respError:      "field URL is a required field",
+			expectedStatus: http.StatusBadRequest,
 		},
 		// this is a check for the validation of the URL
 		{
-			name:      "Invalid URL",
-			url:       "some invalid URL",
-			alias:     "some_alias",
-			respError: "field URL is not a valid URL",
+			name:           "Invalid URL",
+			url:            "some invalid URL",
+			alias:          "somealias",
+			respError:      "field URL is not a valid URL",
+			expectedStatus: http.StatusBadRequest,
 		},
 		// everything is valid, but in case there is some unexpected error
 		{
-			name:      "SaveURL Error",
-			alias:     "test_alias",
-			url:       "https://google.com",
-			respError: "failed to add url",
-			mockError: errors.New("unexpected error"),
+			name:           "SaveURL Error",
+			alias:          "testalias",
+			url:            "https://google.com",
+			respError:      "failed to add url",
+			mockError:      errors.New("unexpected error"),
+			expectedStatus: http.StatusInternalServerError,
+		},
+		{
+			name:           "Alias too short",
+			alias:          "ab",
+			url:            "https://google.com",
+			respError:      "field Alias is not valid",
+			expectedStatus: http.StatusBadRequest,
+		},
+		{
+			name:           "Alias too long",
+			alias:          "thisaliasiswaytoolong",
+			url:            "https://google.com",
+			respError:      "field Alias is not valid",
+			expectedStatus: http.StatusBadRequest,
+		},
+		{
+			name:           "Alias with special characters",
+			alias:          "test@alias",
+			url:            "https://google.com",
+			respError:      "field Alias is not valid",
+			expectedStatus: http.StatusBadRequest,
+		},
+		{
+			name:           "Alias with spaces",
+			alias:          "test alias",
+			url:            "https://google.com",
+			respError:      "field Alias is not valid",
+			expectedStatus: http.StatusBadRequest,
 		},
 	}
 
@@ -106,7 +140,7 @@ func TestSaveHandler(t *testing.T) {
 			rr := httptest.NewRecorder() // this is a fake http.ResponseWriter basically
 			handler.ServeHTTP(rr, req)   // this runs our handler with the fake request
 			// now here, rr contains the response - status code, body, headers
-			require.Equal(t, rr.Code, http.StatusOK) // here we check if the status code is 200
+			require.Equal(t, tc.expectedStatus, rr.Code) // here we check if the status code is same as expected
 			// get the response body as string
 			body := rr.Body.String()
 			// save the json as response struct
@@ -115,8 +149,6 @@ func TestSaveHandler(t *testing.T) {
 			require.NoError(t, json.Unmarshal([]byte(body), &resp))
 
 			require.Equal(t, tc.respError, resp.Error)
-
-			// TODO: add more checks
 		})
 	}
 }

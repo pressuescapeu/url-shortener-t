@@ -1,59 +1,90 @@
 package redirect_test
 
 import (
+	"context"
+	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"url-shortener/internal/http-server/handlers/url/redirect"
 	"url-shortener/internal/http-server/handlers/url/redirect/mocks"
-	"url-shortener/internal/lib/api"
 	"url-shortener/internal/lib/logger/handlers/slogdiscard"
+	"url-shortener/internal/storage"
 )
 
-//go:generate go run github.com/vektra/mockery/v2@latest --name=URLGetter
-
-func TestSaveHandler(t *testing.T) {
+func TestRedirectHandler(t *testing.T) { // Fixed name!
 	cases := []struct {
-		name      string
-		alias     string
-		url       string
-		respError string
-		mockError error
+		name           string
+		alias          string
+		url            string
+		mockError      error
+		expectedStatus int
+		expectedURL    string // For checking Location header
 	}{
 		{
-			name:  "Success",
-			alias: "test_alias",
-			url:   "https://www.google.com/",
+			name:           "Success",
+			alias:          "test_alias",
+			url:            "https://google.com",
+			mockError:      nil,
+			expectedStatus: http.StatusFound, // 302
+			expectedURL:    "https://google.com",
+		},
+		{
+			name:           "Empty alias",
+			alias:          "",
+			mockError:      nil,
+			expectedStatus: http.StatusBadRequest, // 400
+		},
+		{
+			name:           "URL not found",
+			alias:          "notfound",
+			mockError:      storage.ErrURLNotFound,
+			expectedStatus: http.StatusNotFound, // 404
 		},
 	}
 
 	for _, tc := range cases {
+		tc := tc
+
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
 			urlGetterMock := mocks.NewURLGetter(t)
 
-			if tc.respError == "" || tc.mockError != nil {
+			// Only set up mock if alias is not empty
+			if tc.alias != "" {
 				urlGetterMock.On("GetURL", tc.alias).
-					Return(tc.url, tc.mockError).Once()
+					Return(tc.url, tc.mockError).
+					Once()
 			}
-			// here, we create a router because redirect uses chi.URLParam, as well as registering the route
-			r := chi.NewRouter()
-			r.Get("/{alias}", redirect.New(slogdiscard.NewDiscardLogger(), urlGetterMock))
-			// here we create a real running http server on a random port that runs the router
-			ts := httptest.NewServer(r)
-			defer ts.Close() // we shut it down when the test is done
-			// here we make a real GET request to http://localhost:random_port/test_alias
-			redirectedToURL, err := api.GetRedirect(ts.URL + "/" + tc.alias) // api.GetRedirect gives the redirect
+
+			// Create chi context with alias
+			rctx := chi.NewRouteContext()
+			rctx.URLParams.Add("alias", tc.alias)
+
+			// Create request
+			req, err := http.NewRequest(http.MethodGet, "/"+tc.alias, nil)
 			require.NoError(t, err)
+			req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
 
-			// Check the final URL after redirection.
-			assert.Equal(t, tc.url, redirectedToURL)
+			// Create handler and recorder
+			handler := redirect.New(slogdiscard.NewDiscardLogger(), urlGetterMock)
+			rr := httptest.NewRecorder()
 
-			// assert - fail but continue checking other tests
-			// require - fail and stop
+			// Execute
+			handler.ServeHTTP(rr, req)
+
+			// Check status code
+			require.Equal(t, tc.expectedStatus, rr.Code)
+
+			// For successful redirect, check Location header
+			if tc.expectedStatus == http.StatusFound {
+				location := rr.Header().Get("Location")
+				require.Equal(t, tc.expectedURL, location)
+			}
 		})
 	}
 }

@@ -44,7 +44,7 @@ func TestDeleteHandler(t *testing.T) {
 		},
 		{
 			name:           "URL not found",
-			alias:          "does_not_exist_in_db",
+			alias:          "no_url",
 			respError:      "url not found",
 			mockError:      storage.ErrNoURLDeleted,
 			expectedStatus: http.StatusNotFound,
@@ -56,6 +56,20 @@ func TestDeleteHandler(t *testing.T) {
 			mockError:      errors.New("unexpected error"),
 			expectedStatus: http.StatusInternalServerError,
 		},
+		{
+			name:           "Alias too short",
+			alias:          "ab",
+			respError:      "invalid alias",
+			mockError:      nil, // Mock not called
+			expectedStatus: http.StatusBadRequest,
+		},
+		{
+			name:           "Alias too long",
+			alias:          "this_is_extremely_long_alias_exceeding_reasonable_limits_for_url_shortener",
+			respError:      "invalid alias",
+			mockError:      nil,
+			expectedStatus: http.StatusBadRequest,
+		},
 	}
 
 	for _, tc := range cases {
@@ -64,7 +78,7 @@ func TestDeleteHandler(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			urlDeleterMock := mocks.NewURLDeleter(t)
-			if tc.alias != "" { // empty alias case does not call DeleteURL
+			if tc.alias != "" && len(tc.alias) >= 3 && len(tc.alias) <= 15 { // empty alias case does not call DeleteURL
 				urlDeleterMock.On("DeleteURL", tc.alias).Return(tc.mockError).Once()
 			}
 			// create chi's route context that hold the url params
