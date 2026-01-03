@@ -1,0 +1,10 @@
+.git
+.env
+.env.example
+*.md
+tests/
+.gitignore
+.dockerignore
+config/local.yaml
+*.test
+coverage.txt

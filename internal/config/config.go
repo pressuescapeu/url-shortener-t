@@ -9,43 +9,49 @@ import (
 )
 
 type Config struct {
-	Env        string   `yaml:"env" env-default:"local"`
+	Env        string   `yaml:"env" env:"ENV" env-default:"local"`
 	Database   Database `yaml:"database"`
 	HTTPServer `yaml:"http_server"`
 }
 
 type Database struct {
-	Host     string `yaml:"host" env-default:"localhost"`
-	Port     int    `yaml:"port" env-default:"5432"`
-	User     string `yaml:"user" env-default:"postgres"`
-	Password string `yaml:"password"`
-	DBName   string `yaml:"dbname" env-default:"urlshortener"`
-	SSLMode  string `yaml:"sslmode" env-default:"disable"`
+	Host     string `yaml:"host" env:"DB_HOST" env-default:"localhost"`
+	Port     int    `yaml:"port" env:"DB_PORT" env-default:"5432"`
+	User     string `yaml:"user" env:"DB_USER" env-default:"postgres"`
+	Password string `yaml:"password" env:"DB_PASSWORD" env-required:"true"`
+	DBName   string `yaml:"dbname" env:"DB_NAME" env-default:"urlshortener"`
+	SSLMode  string `yaml:"sslmode" env:"DB_SSLMODE" env-default:"disable"`
 }
 
 type HTTPServer struct {
-	Address     string        `yaml:"address" env-default:"localhost:8082"`
-	Timeout     time.Duration `yaml:"timeout" env-default:"4s"`
-	IdleTimeout time.Duration `yaml:"idle_timeout" env-default:"60s"`
-	User        string        `yaml:"user" env-required:"true"`
-	Password    string        `yaml:"password" env-required:"true" env:"HTTP_SERVER_PASSWORD"`
+	Address     string        `yaml:"address" env:"HTTP_ADDRESS" env-default:"localhost:8082"`
+	Timeout     time.Duration `yaml:"timeout" env:"HTTP_TIMEOUT" env-default:"4s"`
+	IdleTimeout time.Duration `yaml:"idle_timeout" env:"HTTP_IDLE_TIMEOUT" env-default:"60s"`
+	User        string        `yaml:"user" env:"HTTP_USER" env-required:"true"`
+	Password    string        `yaml:"password" env:"HTTP_PASSWORD" env-required:"true"`
 }
 
-// MustLoad we use must when function panics, and does not return errors
+// MustLoad reads config from YAML file if CONFIG_PATH is set,
+// otherwise reads from environment variables
 func MustLoad() *Config {
 	configPath := os.Getenv("CONFIG_PATH")
-	if configPath == "" {
-		log.Fatal("CONFIG_PATH is not set")
-	}
-
-	// check if file exists
-	if _, err := os.Stat(configPath); os.IsNotExist(err) {
-		log.Fatalf("config file does not exist: %s", configPath)
-	}
 
 	var configuration Config
-	if err := cleanenv.ReadConfig(configPath, &configuration); err != nil {
-		log.Fatalf("cannot read configuration: %s", err)
+
+	if configPath != "" {
+		// YAML mode - read from file
+		if _, err := os.Stat(configPath); os.IsNotExist(err) {
+			log.Fatalf("config file does not exist: %s", configPath)
+		}
+
+		if err := cleanenv.ReadConfig(configPath, &configuration); err != nil {
+			log.Fatalf("cannot read configuration: %s", err)
+		}
+	} else {
+		// Environment variable mode - read from env
+		if err := cleanenv.ReadEnv(&configuration); err != nil {
+			log.Fatalf("cannot read configuration from environment: %s", err)
+		}
 	}
 
 	return &configuration

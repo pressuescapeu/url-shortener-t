@@ -1,0 +1,4 @@
+.env
+config/prod.yaml
+config/dev.yaml
+*.env
