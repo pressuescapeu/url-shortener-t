@@ -20,6 +20,9 @@ import (
 	//"url-shortener/internal/lib/logger/sl"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/golang-migrate/migrate/v4"
+	_ "github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
 )
 
 const (
@@ -39,11 +42,11 @@ func main() {
 	fmt.Println(configuration)
 
 	connString := fmt.Sprintf(
-		"host=%s port=%d user=%s password=%s dbname=%s sslmode=%s",
-		configuration.Database.Host,
-		configuration.Database.Port,
+		"postgres://%s:%s@%s:%d/%s?sslmode=%s",
 		configuration.Database.User,
 		configuration.Database.Password,
+		configuration.Database.Host,
+		configuration.Database.Port,
 		configuration.Database.DBName,
 		configuration.Database.SSLMode,
 	)
@@ -51,6 +54,15 @@ func main() {
 	// ngl I couldn't figure out all the drivers shit with sqlite so I went with postgres
 	// idk I use sqlite at work and I am so fed up with it so I'm biased as well
 
+	// run the migrations
+	log.Info("running database migrations")
+	if err := runMigrations(connString); err != nil {
+		log.Error("failed to run migrations", slog.String("error", err.Error()))
+		os.Exit(1)
+	}
+	log.Info("migrations completed successfully")
+
+	// now create storage
 	storage, err := postgres.New(connString)
 	if err != nil {
 		log.Error("failed to init storage", slog.String("error", err.Error()))
@@ -103,6 +115,32 @@ func main() {
 	}
 
 	log.Error("server stopped")
+}
+
+func runMigrations(connString string) error {
+	const op = "main.runMigrations"
+
+	// create a migration instance
+	m, err := migrate.New(
+		"file://migrations",
+		connString,
+	)
+
+	if err != nil {
+		return fmt.Errorf("%s: failed to create migration instance: %w", op, err)
+	}
+
+	defer m.Close()
+
+	if err := m.Up(); err != nil {
+		// migrate.ErrNoChange means all migrations are already applied
+		if err == migrate.ErrNoChange {
+			return nil
+		}
+		return fmt.Errorf("%s: failed to run migrations: %w", op, err)
+	}
+
+	return nil
 }
 
 func setupLogger(env string) *slog.Logger {

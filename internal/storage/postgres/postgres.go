@@ -25,27 +25,27 @@ func New(connString string) (*Storage, error) {
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
-	// create the table in public schema
-	stmt := `
-        CREATE TABLE IF NOT EXISTS public.url(
-            id    SERIAL PRIMARY KEY,
-            alias TEXT NOT NULL UNIQUE,
-            url   TEXT NOT NULL
-        );
-    `
-	fmt.Println("DEBUG: Executing CREATE TABLE...")
-	_, err = db.Exec(stmt)
-	if err != nil {
-		fmt.Println("DEBUG: CREATE TABLE failed:", err)
-		return nil, fmt.Errorf("%s: %w", op, err)
-	}
-	fmt.Println("DEBUG: CREATE TABLE succeeded")
-
-	// create index in public schema
-	_, err = db.Exec(`CREATE INDEX IF NOT EXISTS idx_alias ON public.url(alias);`)
-	if err != nil {
-		return nil, fmt.Errorf("%s: %w", op, err)
-	}
+	//// create the table in public schema
+	//stmt := `
+	//    CREATE TABLE IF NOT EXISTS public.url(
+	//        id    SERIAL PRIMARY KEY,
+	//        alias TEXT NOT NULL UNIQUE,
+	//        url   TEXT NOT NULL
+	//    );
+	//`
+	//fmt.Println("DEBUG: Executing CREATE TABLE...")
+	//_, err = db.Exec(stmt)
+	//if err != nil {
+	//	fmt.Println("DEBUG: CREATE TABLE failed:", err)
+	//	return nil, fmt.Errorf("%s: %w", op, err)
+	//}
+	//fmt.Println("DEBUG: CREATE TABLE succeeded")
+	//
+	//// create index in public schema
+	//_, err = db.Exec(`CREATE INDEX IF NOT EXISTS idx_alias ON public.url(alias);`)
+	//if err != nil {
+	//	return nil, fmt.Errorf("%s: %w", op, err)
+	//}
 
 	return &Storage{db: db}, nil
 }
