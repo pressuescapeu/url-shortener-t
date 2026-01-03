@@ -35,6 +35,8 @@ func New(log *slog.Logger, urlDeleter URLDeleter) http.HandlerFunc {
 		if alias == "" {
 			log.Info("alias is empty")
 
+			w.WriteHeader(http.StatusBadRequest)
+
 			render.JSON(w, r, resp.Error("not found"))
 
 			return
@@ -43,12 +45,16 @@ func New(log *slog.Logger, urlDeleter URLDeleter) http.HandlerFunc {
 		if errors.Is(err, storage.ErrNoURLDeleted) {
 			log.Info("url not found", slog.String("alias", alias))
 
+			w.WriteHeader(http.StatusNotFound)
+
 			render.JSON(w, r, resp.Error("url not found"))
 
 			return
 		}
 		if err != nil {
 			log.Error("failed to delete url", sl.Err(err))
+
+			w.WriteHeader(http.StatusInternalServerError)
 
 			render.JSON(w, r, resp.Error("failed to delete url"))
 

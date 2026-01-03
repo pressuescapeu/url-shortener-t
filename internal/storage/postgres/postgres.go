@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"url-shortener/internal/storage"
 
+	"github.com/lib/pq"
 	_ "github.com/lib/pq"
 )
 
@@ -59,6 +60,13 @@ func (s *Storage) SaveURL(urlToSave string, alias string) (int64, error) {
 		urlToSave, alias,
 	).Scan(&id)
 	if err != nil {
+		// check if it's a unique constraint violation - duplicate alias
+		if pqErr, ok := err.(*pq.Error); ok {
+			// postgresql code 23505 means this
+			if pqErr.Code == "23505" {
+				return 0, fmt.Errorf("%s: %w", op, storage.ErrUrlExists)
+			}
+		}
 		return 0, fmt.Errorf("%s: %w", op, err)
 	}
 	return id, nil

@@ -30,6 +30,7 @@ func New(log *slog.Logger, urlGetter URLGetter) http.HandlerFunc {
 		if alias == "" {
 			log.Info("alias is empty")
 
+			w.WriteHeader(http.StatusBadRequest)
 			render.JSON(w, r, resp.Error("not found"))
 
 			return
@@ -39,6 +40,7 @@ func New(log *slog.Logger, urlGetter URLGetter) http.HandlerFunc {
 		if errors.Is(err, storage.ErrURLNotFound) {
 			log.Info("url not found", "alias", alias)
 
+			w.WriteHeader(http.StatusNotFound)
 			render.JSON(w, r, resp.Error("not found"))
 
 			return
