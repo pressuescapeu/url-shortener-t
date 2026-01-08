@@ -38,18 +38,23 @@ func main() {
 
 	log.Info("starting url-shortener", slog.String("env", configuration.Env))
 	log.Debug("debug messages are enabled")
-	// TODO: DELETE AFTER DEBUG!!!!!!!!!!
-	fmt.Println(configuration)
 
-	connString := fmt.Sprintf(
-		"postgres://%s:%s@%s:%d/%s?sslmode=%s",
-		configuration.Database.User,
-		configuration.Database.Password,
-		configuration.Database.Host,
-		configuration.Database.Port,
-		configuration.Database.DBName,
-		configuration.Database.SSLMode,
-	)
+	// build connection string for railway
+	var connString string
+	if dbURL := os.Getenv("DATABASE_URL"); dbURL != "" {
+		connString = dbURL
+		log.Info("using database connection string from environment variable DATABASE_URL")
+	} else { // just build off local in case there is none
+		connString = fmt.Sprintf(
+			"postgres://%s:%s@%s:%d/%s?sslmode=%s",
+			configuration.Database.User,
+			configuration.Database.Password,
+			configuration.Database.Host,
+			configuration.Database.Port,
+			configuration.Database.DBName,
+			configuration.Database.SSLMode,
+		)
+	}
 
 	// ngl I couldn't figure out all the drivers shit with sqlite so I went with postgres
 	// idk I use sqlite at work and I am so fed up with it so I'm biased as well
@@ -102,8 +107,15 @@ func main() {
 
 	log.Info("starting server", slog.String("address", configuration.Address))
 
+	// use PORT from railway if provided, otherwise use local config
+	address := configuration.Address
+	if port := os.Getenv("PORT"); port != "" {
+		address = "0.0.0.0:" + port
+		log.Info("using port from environment variable PORT", slog.String("port", port))
+	}
+
 	server := &http.Server{
-		Addr:         configuration.Address,
+		Addr:         address,
 		Handler:      router,
 		ReadTimeout:  configuration.HTTPServer.Timeout,
 		WriteTimeout: configuration.HTTPServer.Timeout,
