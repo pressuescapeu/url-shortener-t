@@ -15,10 +15,11 @@ type Config struct {
 }
 
 type Database struct {
-	Host     string `yaml:"host" env:"DB_HOST" env-default:"localhost"`
-	Port     int    `yaml:"port" env:"DB_PORT" env-default:"5432"`
-	User     string `yaml:"user" env:"DB_USER" env-default:"postgres"`
-	Password string `yaml:"password" env:"DB_PASSWORD" env-required:"true"`
+	Host string `yaml:"host" env:"DB_HOST" env-default:"localhost"`
+	Port int    `yaml:"port" env:"DB_PORT" env-default:"5432"`
+	User string `yaml:"user" env:"DB_USER" env-default:"postgres"`
+	// removed env-required bc we will use railway
+	Password string `yaml:"password" env:"DB_PASSWORD"`
 	DBName   string `yaml:"dbname" env:"DB_NAME" env-default:"urlshortener"`
 	SSLMode  string `yaml:"sslmode" env:"DB_SSLMODE" env-default:"disable"`
 }
